@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dekor Rumah — Drag & Drop</title>
+<style>
+:root{--cream:#FFF6E8;--warm:#FFFDF6;--line:#E8D9C0;--ink:#6B5340;--soft:#8A6C4E;--wood:#C89A6A;--woodD:#A97F52}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito',-apple-system,system-ui,sans-serif;background:var(--cream);color:var(--ink);
+  display:flex;flex-direction:column}
+
+/* HUD atas */
+.hud{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--warm);
+  border-bottom:2px solid var(--line);flex-shrink:0;z-index:20}
+.hbtn{width:38px;height:38px;border-radius:13px;border:2px solid var(--line);background:var(--warm);
+  display:grid;place-items:center;font-size:17px;cursor:pointer}
+.hbtn:active{transform:scale(.9)}
+.htitle{flex:1;min-width:0}
+.htitle b{font-size:14.5px;display:block;line-height:1.15}
+.htitle small{font-size:10.5px;color:var(--soft)}
+.coin{display:flex;align-items:center;gap:4px;background:#FFF3C9;border:2px solid #E8C97A;
+  border-radius:12px;padding:5px 9px;font-size:12px;font-weight:800;color:#8A6A2E}
+
+/* panggung */
+.stagewrap{flex:1;min-height:0;display:grid;place-items:center;padding:10px;position:relative}
+.stage{position:relative;height:100%;aspect-ratio:3/4;max-width:100%;border-radius:20px;overflow:hidden;
+  border:2.5px solid var(--line);box-shadow:0 4px 0 rgba(150,110,70,.12);touch-action:none}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+#items{position:absolute;inset:0}
+.zoneHint{position:absolute;left:0;right:0;pointer-events:none;opacity:0;transition:opacity .18s}
+.zoneHint.on{opacity:1}
+.zoneHint.wall{top:0;height:58%;background:rgba(127,179,213,.16);border-bottom:2px dashed rgba(127,179,213,.6)}
+.zoneHint.floor{top:58%;bottom:0;background:rgba(111,181,126,.15)}
+
+/* item */
+.it{position:absolute;transform-origin:center;cursor:grab;transition:filter .15s}
+.it svg{display:block;overflow:visible;pointer-events:none}
+.it.sel{filter:drop-shadow(0 0 0 #F0A05A) drop-shadow(0 0 3px #F0A05A)}
+.it.drag{cursor:grabbing;filter:drop-shadow(0 6px 6px rgba(107,83,64,.3))}
+
+/* toolbar item terpilih */
+.obar{position:absolute;display:flex;gap:5px;background:var(--warm);border:2px solid var(--line);
+  border-radius:14px;padding:5px;box-shadow:0 3px 0 rgba(150,110,70,.16);z-index:30;
+  opacity:0;pointer-events:none;transform:translate(-50%,-100%) scale(.9);transition:opacity .16s,transform .16s}
+.obar.on{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1)}
+.obar button{width:34px;height:34px;border-radius:11px;background:var(--cream);border:none;
+  display:grid;place-items:center;font-size:15px;cursor:pointer}
+.obar button:active{transform:scale(.86)}
+.obar button.del{background:#FFE9E6}
+
+/* bar bawah */
+.bottom{flex-shrink:0;background:var(--warm);border-top:2px solid var(--line);z-index:20}
+.rooms{display:flex;gap:6px;overflow-x:auto;padding:9px 12px;scrollbar-width:none}
+.rooms::-webkit-scrollbar{display:none}
+.rm{flex:0 0 auto;padding:7px 13px;border-radius:13px;border:2px solid var(--line);background:var(--warm);
+  font-size:12px;font-weight:800;color:var(--soft);cursor:pointer}
+.rm.on{background:var(--wood);border-color:var(--woodD);color:#fff}
+.acts{display:flex;gap:8px;padding:0 12px 10px}
+.act{flex:1;padding:11px;border-radius:14px;border:2px solid var(--line);background:var(--warm);
+  font-size:13px;font-weight:800;color:var(--soft);cursor:pointer}
+.act.primary{background:linear-gradient(160deg,#F5B471,#EE9440);border-color:#D9822B;color:#fff}
+.act:active{transform:scale(.97)}
+
+/* katalog */
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--warm);border-top:2.5px solid var(--line);
+  border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(150,110,70,.2);z-index:40;
+  transform:translateY(105%);transition:transform .3s cubic-bezier(.34,1.1,.5,1);max-height:62vh;
+  display:flex;flex-direction:column}
+.sheet.on{transform:none}
+.grab{width:44px;height:5px;border-radius:99px;background:var(--line);margin:9px auto 4px;flex-shrink:0}
+.shead{display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;flex-shrink:0}
+.shead b{font-size:15px}
+.cats{display:flex;gap:6px;overflow-x:auto;padding:0 12px 9px;scrollbar-width:none;flex-shrink:0}
+.cats::-webkit-scrollbar{display:none}
+.ct{flex:0 0 auto;padding:6px 12px;border-radius:12px;border:2px solid var(--line);background:var(--warm);
+  font-size:11.5px;font-weight:800;color:var(--soft);cursor:pointer}
+.ct.on{background:var(--wood);border-color:var(--woodD);color:#fff}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:9px;padding:0 12px 18px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ci{background:var(--cream);border:2px solid var(--line);border-radius:14px;padding:7px 4px 8px;text-align:center;cursor:pointer}
+.ci:active{transform:scale(.94)}
+.ci .th{height:52px;display:grid;place-items:center}
+.ci .th svg{width:46px;height:46px;overflow:visible}
+.ci .nm{font-size:9.5px;font-weight:800;line-height:1.15;margin-top:2px}
+.ci .pr{font-size:9.5px;font-weight:800;color:var(--woodD);margin-top:2px}
+.ci .pr.free{color:#4E9E62}
+.ci.owned{opacity:.55}
+.toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-120%);background:#5A3D1E;color:#FFF6E2;
+  font-size:12.5px;font-weight:800;padding:10px 16px;border-radius:99px;z-index:99;transition:transform .3s;max-width:88%;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+.mask{position:fixed;inset:0;background:rgba(80,60,40,.35);z-index:35;opacity:0;pointer-events:none;transition:opacity .25s}
+.mask.on{opacity:1;pointer-events:auto}
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <button class="hbtn" id="back">‹</button>
+  <div class="htitle"><b id="hTitle">Rumah Oniyaww</b><small id="hSub">Ruang Tamu</small></div>
+  <div class="coin">🪙 <span id="coin">3.250</span></div>
+</div>
+
+<div class="stagewrap">
+  <div class="stage" id="stage">
+    <svg id="bg" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice"></svg>
+    <div class="zoneHint wall" id="zw"></div>
+    <div class="zoneHint floor" id="zf"></div>
+    <div id="items"></div>
+    <div class="obar" id="obar">
+      <button id="bFlip" title="Balik">🔁</button>
+      <button id="bUp" title="Ke depan">⬆️</button>
+      <button id="bDown" title="Ke belakang">⬇️</button>
+      <button id="bPhoto" title="Pasang foto" style="display:none">📷</button>
+      <button id="bDel" class="del" title="Simpan kembali">🗑️</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="rooms" id="rooms"></div>
+  <div class="acts">
+    <button class="act" id="btnMode">✋ Mode Dekor</button>
+    <button class="act primary" id="btnShop">🛋️ Furniture</button>
+  </div>
+</div>
+
+<div class="mask" id="mask"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <div class="shead"><b>🛋️ Furniture</b><button class="hbtn" id="closeSheet">✕</button></div>
+  <div class="cats" id="cats"></div>
+  <div class="cgrid" id="cgrid"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= DATA ================= */
+const C={cream:'#FFF6E8',white:'#FFFDF6',line:'#8A6C4E',wood:'#C89A6A',woodD:'#A97F52',woodL:'#E0BE93',
+pink:'#F5B7C8',pinkD:'#E294AC',blue:'#A8CFE8',blueD:'#7FB3D5',green:'#9FD8A8',greenD:'#6FB57E',
+yellow:'#FFD98A',yellowD:'#E8B85C',lilac:'#C9B6E8',peach:'#F5B78A',grey:'#D8D2C6',leaf:'#7FBF8A',
+sky:'#DFF1FA',soil:'#B08968',dark:'#6B5340'};
+const L=C.line, st=`stroke="${L}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"`;
+const stT=`stroke="${L}" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"`;
+// Setiap item dikasih lapisan detail: bayangan kontak, kilau, dan guratan tekstur.
+// Jadi ga flat lagi tapi gambar aslinya tetap dipakai (bukan digambar ulang).
+const SHADOW = ``;
+const SHEEN  = ``;
+const GRAIN  = ``;
+const S=(i,o={})=>`<svg viewBox="0 0 100 100">`
+  + (o.noShadow?'':SHADOW) + i
+  + (o.noGrain?'':GRAIN) + (o.noSheen?'':SHEEN) + `</svg>`;
+const HZ=232;
+
+/* --- latar ruangan --- */
+const DEFS=`<defs>
+<pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+  <circle cx="6" cy="6" r="2.1" fill="#E7D3BE" opacity=".85"/><circle cx="19" cy="19" r="1.5" fill="#E7D3BE" opacity=".6"/></pattern>
+<pattern id="tile" width="30" height="30" patternUnits="userSpaceOnUse">
+  <path d="M0 0h30M0 0v30" stroke="rgba(127,179,213,.28)" stroke-width="1.8"/>
+  <circle cx="15" cy="15" r="1.8" fill="rgba(127,179,213,.3)"/></pattern>
+<pattern id="floral" width="34" height="34" patternUnits="userSpaceOnUse"><g opacity=".5">
+  <circle cx="10" cy="10" r="3.2" fill="#EFC9D6"/><circle cx="10" cy="4.5" r="2.2" fill="#F7DDE5"/>
+  <circle cx="10" cy="15.5" r="2.2" fill="#F7DDE5"/><circle cx="4.5" cy="10" r="2.2" fill="#F7DDE5"/>
+  <circle cx="15.5" cy="10" r="2.2" fill="#F7DDE5"/></g></pattern>
+<linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#CFE9F7"/><stop offset="100%" stop-color="#EAF6FB"/></linearGradient>
+<linearGradient id="vig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#000" stop-opacity=".07"/><stop offset="35%" stop-color="#000" stop-opacity="0"/></linearGradient>
+</defs>`;
+function wallOf(base,pat){return `
+  <rect width="300" height="${HZ}" fill="${base}"/><rect width="300" height="${HZ}" fill="url(#${pat})"/>
+  <rect width="300" height="${HZ}" fill="url(#vig)"/>
+  <rect y="${HZ-56}" width="300" height="56" fill="rgba(255,255,255,.5)"/>
+  <path d="M0 ${HZ-56}h300" stroke="${L}" stroke-width="2" opacity=".45"/>
+  ${[40,100,160,220,280].map(x=>`<rect x="${x-22}" y="${HZ-46}" width="44" height="34" rx="4" fill="none" stroke="${L}" stroke-width="1.5" opacity=".25"/>`).join('')}
+  <rect y="${HZ-13}" width="300" height="13" fill="#F3E4D0"/><path d="M0 ${HZ-13}h300" stroke="${L}" stroke-width="2"/>`}
+function tileFloor(){
+  let o=`<rect y="${HZ}" width="300" height="${400-HZ}" fill="#DCE7EA"/>`,y=HZ,g=17;
+  while(y<400){o+=`<path d="M0 ${y}h300" stroke="#C4D6DB" stroke-width="2"/>`;y+=g;g*=1.18}
+  [40,100,160,220,280].forEach(x=>{o+=`<path d="M${x} ${HZ}L${x+(x-150)*0.5} 400" stroke="#C4D6DB" stroke-width="2"/>`});
+  return o+`<path d="M0 ${HZ}h300" stroke="${L}" stroke-width="2.6"/><rect y="${HZ}" width="300" height="24" fill="#6B5340" opacity=".09"/>`}
+function floorOf(a,b){let o='',y=HZ,g=15;while(y<400){o+=`<rect y="${y}" width="300" height="${g}" fill="${(Math.round(y)%2)?a:b}"/>`;y+=g;g*=1.16}
+  for(let i=0;i<9;i++){const yy=HZ+18+i*20;if(yy<400)o+=`<path d="M${(i%2)?0:150} ${yy}h150" stroke="${L}" stroke-width="1.2" opacity=".2"/>`}
+  return o+`<path d="M0 ${HZ}h300" stroke="${L}" stroke-width="2.6"/><rect y="${HZ}" width="300" height="26" fill="#6B5340" opacity=".1"/>`}
+const win=(x,y,w,h)=>`
+  <rect x="${x-7}" y="${y-7}" width="${w+14}" height="${h+14}" rx="9" fill="#EBD9BF" ${st}/>
+  <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="url(#skyG)" ${stT}/>
+  <circle cx="${x+w*.26}" cy="${y+h*.28}" r="11" fill="#fff" opacity=".9"/>
+  <path d="M${x} ${y+h*.74}q${w*.3}-16 ${w*.55} 0t${w*.45} 0v${h*.26}H${x}z" fill="#BFE3B4"/>
+  <circle cx="${x+w*.74}" cy="${y+h*.6}" r="14" fill="#9FD8A8" ${stT}/>
+  <path d="M${x+w/2} ${y}v${h}M${x} ${y+h/2}h${w}" stroke="${L}" stroke-width="2.4"/>
+  <rect x="${x-13}" y="${y+h}" width="${w+26}" height="9" rx="4" fill="#E0BE93" ${st}/>
+  <path d="M${x-9} ${y-4}q10 ${h*.5} 0 ${h+6}q16-6 20-${h*.5}t-4-${h*.52}z" fill="#F7D9E2" ${stT}/>
+  <path d="M${x+w+9} ${y-4}q-10 ${h*.5} 0 ${h+6}q-16-6-20-${h*.5}t4-${h*.52}z" fill="#F7D9E2" ${stT}/>
+  <path d="M${x-16} ${y-9}h${w+32}" stroke="${L}" stroke-width="3.4" stroke-linecap="round"/>`;
+
+const ROOMS=[
+ {k:'living',n:'Ruang Tamu',bg:DEFS+wallOf('#FBEADA','dots')+floorOf('#E3C097','#D9B387')+win(52,74,88,70)},
+ {k:'bedroom',n:'Kamar Tidur',bg:DEFS+wallOf('#F4EDF8','floral')+floorOf('#E5C6A4','#DBB894')+win(150,76,88,68)},
+ {k:'kitchen',n:'Dapur',bg:DEFS+wallOf('#F7F1E4','tile')+floorOf('#E0C6A8','#D5B99A')+win(158,68,86,66)+`
+   <rect x="14" y="150" width="112" height="11" rx="4" fill="#E0BE93" ${st}/>
+   <path d="M24 161v6M116 161v6" ${stT}/>
+   <rect x="22" y="52" width="52" height="52" rx="6" fill="#FFFDF6" ${st}/>
+   <path d="M48 52v52" stroke="${L}" stroke-width="2"/>
+   <path d="M42 74v8M54 74v8" stroke="${L}" stroke-width="2.6" stroke-linecap="round"/>`},
+ {k:'bathroom',n:'K. Mandi',bg:DEFS+wallOf('#EAF4F8','tile')+tileFloor()+win(176,62,80,64)+`
+   <circle cx="72" cy="92" r="32" fill="#EBD9BF" ${st}/>
+   <circle cx="72" cy="92" r="26" fill="#F4FBFD" ${stT}/>
+   <path d="M58 80q12-8 22 3" stroke="#fff" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+   <path d="M110 46h56" stroke="${L}" stroke-width="3.6" stroke-linecap="round"/>
+   <path d="M118 46q-5 22 2 34 12-5 10-19t-5-15z" fill="#F7D9E2" ${stT}/>
+   <path d="M142 46q-5 20 2 32 11-5 9-18t-4-14z" fill="#A8CFE8" ${stT}/>`},
+ {k:'garden',n:'Taman',bg:DEFS+`
+   <rect width="300" height="${HZ}" fill="url(#skyG)"/>
+   <circle cx="248" cy="46" r="30" fill="#FFF3C9" opacity=".95"/><circle cx="248" cy="46" r="20" fill="#FFE9A8" opacity=".8"/>
+   <circle cx="56" cy="52" r="21" fill="#fff"/><circle cx="80" cy="56" r="16" fill="#fff"/><circle cx="38" cy="58" r="14" fill="#fff"/>
+   <circle cx="196" cy="104" r="15" fill="#fff" opacity=".8"/><circle cx="212" cy="108" r="11" fill="#fff" opacity=".8"/>
+   <path d="M110 88q8-7 16 0M126 88q8-7 16 0" fill="none" stroke="${L}" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>
+   <path d="M0 178q52-34 104-6t100-14 96 12v46H0z" fill="#CFE7C4"/>
+   <path d="M0 196q60-26 118-4t92-10 90 10v34H0z" fill="#BFE3B4"/>
+   ${Array.from({length:11},(_,i)=>`<rect x="${i*30+4}" y="${HZ-52}" width="9" height="52" rx="3" fill="#E0BE93" ${stT}/>`).join('')}
+   <rect y="${HZ-40}" width="300" height="7" fill="#D0A876" ${stT}/><rect y="${HZ-22}" width="300" height="7" fill="#D0A876" ${stT}/>
+   <rect y="${HZ}" width="300" height="${400-HZ}" fill="#AEDCA2"/><path d="M0 ${HZ}h300" stroke="#4E8A5E" stroke-width="2.6"/>
+   <path d="M-10 ${HZ+46}q90 16 160 0t160 0" fill="none" stroke="#98CE8C" stroke-width="4"/>
+   <path d="M-10 ${HZ+112}q100 18 170 0t150 0" fill="none" stroke="#98CE8C" stroke-width="4"/>
+   ${Array.from({length:24},(_,i)=>{const x=(i*37)%300,y=HZ+18+((i*53)%140);return `<path d="M${x} ${y}q3-8 6 0" stroke="#7FBF8A" stroke-width="2" fill="none"/>`}).join('')}`},
+ {k:'petroom',n:'Area Pet',bg:DEFS+wallOf('#FDF2E6','dots')+floorOf('#E7CBAA','#DCBE9C')+win(160,70,84,64)+`
+   <rect x="26" y="52" width="94" height="42" rx="10" fill="#FFF7EA" ${st}/>
+   <rect x="34" y="60" width="78" height="26" rx="7" fill="#F7D9E2" ${stT}/>
+   <circle cx="58" cy="73" r="5.4" fill="#E294AC"/>
+   <circle cx="53" cy="65" r="2.4" fill="#E294AC"/><circle cx="59" cy="63" r="2.4" fill="#E294AC"/><circle cx="65" cy="66" r="2.4" fill="#E294AC"/>
+   <path d="M76 69h28M76 79h20" stroke="#E294AC" stroke-width="2.8" stroke-linecap="round"/>
+   ${[[142,142],[160,164],[144,184]].map(([x,y])=>`<g opacity=".4"><circle cx="${x}" cy="${y}" r="4.4" fill="#C99A61"/>
+     <circle cx="${x-4}" cy="${y-6}" r="2" fill="#C99A61"/><circle cx="${x+1}" cy="${y-8}" r="2" fill="#C99A61"/>
+     <circle cx="${x+6}" cy="${y-5}" r="2" fill="#C99A61"/></g>`).join('')}`},
+];
+
+const CAT=[
+ {k:'sofa_cream',n:'Sofa Krem',cat:'living',price:0,place:'floor',w:158,h:158,svg:S(`
+   <rect x="10" y="40" width="18" height="36" rx="8" fill="#F1E2CC" ${st}/>
+   <rect x="72" y="40" width="18" height="36" rx="8" fill="#F1E2CC" ${st}/>
+   <path d="M14 46q6 14 0 26M84 46q-6 14 0 26" stroke="#DFCBAF" stroke-width="2" fill="none"/>
+   <rect x="18" y="30" width="64" height="28" rx="10" fill="#FFF7EA" ${st}/>
+   <path d="M50 32v24" stroke="#E9D6BC" stroke-width="2"/>
+   <path d="M26 38q10-5 20 0M54 38q10-5 20 0" stroke="#E9D6BC" stroke-width="1.8" fill="none"/>
+   <rect x="16" y="52" width="68" height="24" rx="9" fill="#FFFDF6" ${st}/>
+   <path d="M50 54v20" stroke="#E9D6BC" stroke-width="2"/>
+   <path d="M22 62q12-4 24 0M54 62q12-4 24 0" stroke="#EFE0C8" stroke-width="1.8" fill="none"/>
+   <rect x="24" y="34" width="18" height="15" rx="6" fill="${C.pink}" transform="rotate(-7 33 41)" ${stT}/>
+   <path d="M28 41q7-3 12 0" stroke="${C.pinkD}" stroke-width="1.6" fill="none" transform="rotate(-7 33 41)"/>
+   <rect x="58" y="35" width="18" height="14" rx="6" fill="${C.blue}" transform="rotate(6 67 42)" ${stT}/>
+   <path d="M62 42q7-3 12 0" stroke="${C.blueD}" stroke-width="1.6" fill="none" transform="rotate(6 67 42)"/>
+   <path d="M22 76v8M78 76v8" stroke="${C.woodD}" stroke-width="4.4" stroke-linecap="round"/>`)},
+ {k:'sofa_pink',n:'Sofa Pink',cat:'living',price:850,place:'floor',w:158,h:158,svg:S(`<rect x="12" y="46" width="76" height="30" rx="9" fill="${C.pink}" ${st}/>
+    <rect x="18" y="34" width="64" height="26" rx="9" fill="#FBD3DE" ${st}/>
+    <rect x="8"  y="42" width="16" height="30" rx="7" fill="${C.pink}" ${st}/>
+    <rect x="76" y="42" width="16" height="30" rx="7" fill="${C.pink}" ${st}/>
+    <path d="M22 76v6M78 76v6" ${st}/>`)},
+ {k:'sofa_blue',n:'Sofa Biru',cat:'living',price:850,place:'floor',w:158,h:158,svg:S(`<rect x="12" y="46" width="76" height="30" rx="9" fill="${C.blue}" ${st}/>
+    <rect x="18" y="34" width="64" height="26" rx="9" fill="#C9E3F2" ${st}/>
+    <rect x="8"  y="42" width="16" height="30" rx="7" fill="${C.blue}" ${st}/>
+    <rect x="76" y="42" width="16" height="30" rx="7" fill="${C.blue}" ${st}/>
+    <path d="M22 76v6M78 76v6" ${st}/>`)},
+ {k:'sofa_velvet',n:'Sofa Beludru',cat:'living',price:3200,place:'floor',w:166,h:166,svg:S(`<rect x="12" y="44" width="76" height="32" rx="11" fill="${C.lilac}" ${st}/>
+    <rect x="18" y="30" width="64" height="28" rx="11" fill="#DCD0F2" ${st}/>
+    <rect x="8"  y="40" width="16" height="32" rx="8" fill="${C.lilac}" ${st}/>
+    <rect x="76" y="40" width="16" height="32" rx="8" fill="${C.lilac}" ${st}/>
+    <circle cx="34" cy="44" r="2.4" fill="${C.line}"/><circle cx="50" cy="42" r="2.4" fill="${C.line}"/>
+    <circle cx="66" cy="44" r="2.4" fill="${C.line}"/>
+    <path d="M20 76v6M80 76v6" ${st}/>`)},
+ {k:'armchair',n:'Kursi Santai',cat:'living',price:520,place:'floor',w:88,h:88,svg:S(`
+   <rect x="16" y="42" width="16" height="32" rx="7" fill="#F0C7A6" ${st}/>
+   <rect x="68" y="42" width="16" height="32" rx="7" fill="#F0C7A6" ${st}/>
+   <path d="M20 48q5 12 0 22M80 48q-5 12 0 22" stroke="#E0AF89" stroke-width="1.8" fill="none"/>
+   <rect x="26" y="28" width="48" height="26" rx="10" fill="#FBD3B8" ${st}/>
+   <path d="M50 30v22" stroke="#EFBB98" stroke-width="1.8"/>
+   <path d="M32 36q8-4 16 0M54 36q8-4 16 0" stroke="#EFBB98" stroke-width="1.6" fill="none"/>
+   <rect x="24" y="50" width="52" height="24" rx="9" fill="${C.peach}" ${st}/>
+   <path d="M30 60q20-5 40 0" stroke="#E8A87C" stroke-width="1.8" fill="none"/>
+   <path d="M30 74v8M70 74v8" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'beanbag',n:'Bean Bag',cat:'living',price:340,place:'floor',w:78,h:78,svg:S(`<path d="M24 74q-8-16 6-28t34-6q16 6 14 22t-12 14z" fill="${C.yellow}" ${st}/>
+    <path d="M34 52q10-6 22-2" stroke="${C.yellowD}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`)},
+ {k:'coffee_table',n:'Meja Kopi',cat:'living',price:0,place:'floor',w:100,h:100,svg:S(`
+   <ellipse cx="50" cy="40" rx="40" ry="12" fill="${C.woodL}" ${st}/>
+   <ellipse cx="50" cy="37" rx="34" ry="9" fill="#EBCFA9" ${stT}/>
+   <path d="M24 38q26 8 52 0" stroke="#D6B183" stroke-width="1.6" fill="none"/>
+   <path d="M10 40v4q0 6 40 6t40-6v-4" fill="#D0A876" ${stT}/>
+   <path d="M22 52l-4 26M78 52l4 26" stroke="${C.woodD}" stroke-width="5" stroke-linecap="round"/>
+   <path d="M22 64h56" stroke="${C.woodD}" stroke-width="3.4"/>
+   <ellipse cx="50" cy="34" rx="9" ry="3" fill="#FFF6E4" opacity=".8"/>`)},
+ {k:'tv_set',n:'TV',cat:'living',price:1400,place:'floor',w:110,h:110,svg:S(`<rect x="14" y="30" width="72" height="42" rx="7" fill="${C.dark}" ${st}/>
+    <rect x="20" y="36" width="60" height="30" rx="4" fill="${C.blue}"/>
+    <path d="M42 72h16v8H42z" fill="${C.grey}" ${st}/>
+    <path d="M34 80h32" ${st}/>`)},
+ {k:'bookshelf',n:'Rak Buku',cat:'living',price:760,place:'floor',w:116,h:116,svg:S(`
+   <rect x="16" y="12" width="68" height="76" rx="6" fill="${C.wood}" ${st}/>
+   <rect x="22" y="18" width="56" height="64" rx="3" fill="#B98B55"/>
+   <path d="M22 40h56M22 62h56" stroke="${C.woodD}" stroke-width="3"/>
+   <rect x="26" y="22" width="7" height="16" rx="2" fill="${C.pink}" ${stT}/>
+   <rect x="35" y="25" width="6" height="13" rx="2" fill="${C.blue}" ${stT}/>
+   <rect x="43" y="21" width="7" height="17" rx="2" fill="${C.green}" ${stT}/>
+   <path d="M56 38V28a6 6 0 0 1 12 0v10z" fill="#FFFDF6" ${stT}/>
+   <rect x="26" y="46" width="7" height="15" rx="2" fill="${C.yellow}" ${stT}/>
+   <rect x="35" y="48" width="6" height="13" rx="2" fill="${C.lilac}" ${stT}/>
+   <circle cx="60" cy="54" r="6" fill="${C.leaf}" ${stT}/>
+   <rect x="26" y="68" width="20" height="13" rx="3" fill="#E0BE93" ${stT}/>
+   <path d="M32 68v13" stroke="${C.woodD}" stroke-width="1.6"/>
+   <path d="M20 88v6M80 88v6" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'side_table',n:'Meja Sudut',cat:'living',price:280,place:'floor',w:92,h:92,svg:S(`<rect x="28" y="40" width="44" height="9" rx="4" fill="${C.woodL}" ${st}/>
+    <path d="M34 49v26M66 49v26" ${st}/>
+    <path d="M34 62h32" ${st}/>`)},
+ {k:'kitchen_counter',n:'Meja Dapur',cat:'kitchen',price:0,place:'floor',w:139,h:139,svg:S(`
+   <rect x="10" y="40" width="80" height="14" rx="5" fill="${C.wood}" ${st}/>
+   <rect x="10" y="40" width="80" height="5" rx="2" fill="#D9B98C"/>
+   <rect x="14" y="54" width="72" height="34" rx="5" fill="#FFFDF6" ${st}/>
+   <path d="M50 54v34" stroke="${C.line}" stroke-width="2"/>
+   <rect x="20" y="60" width="24" height="22" rx="4" fill="#F6EEDE" ${stT}/>
+   <rect x="56" y="60" width="24" height="22" rx="4" fill="#F6EEDE" ${stT}/>
+   <path d="M38 68h6M56 68h6" stroke="${C.woodD}" stroke-width="3" stroke-linecap="round"/>
+   <path d="M14 72h72" stroke="#EDE2CE" stroke-width="1.4"/>`)},
+ {k:'stove',n:'Kompor',cat:'kitchen',price:900,place:'any',w:118,h:118,svg:S(`<rect x="18" y="38" width="64" height="44" rx="7" fill="${C.grey}" ${st}/>
+    <rect x="24" y="46" width="52" height="22" rx="4" fill="${C.dark}" ${st}/>
+    <circle cx="37" cy="57" r="6" fill="${C.peach}" ${st}/>
+    <circle cx="63" cy="57" r="6" fill="${C.peach}" ${st}/>
+    <path d="M28 76h44" ${st}/>`)},
+ {k:'fridge',n:'Kulkas',cat:'kitchen',price:1600,place:'floor',w:126,h:126,svg:S(`
+   <rect x="26" y="10" width="48" height="80" rx="8" fill="#FFFDF6" ${st}/>
+   <path d="M26 40h48" stroke="${C.line}" stroke-width="2.4"/>
+   <rect x="31" y="15" width="38" height="21" rx="4" fill="#F4F0E6" ${stT}/>
+   <rect x="31" y="45" width="38" height="40" rx="4" fill="#F4F0E6" ${stT}/>
+   <path d="M64 22v10M64 50v12" stroke="${C.grey}" stroke-width="3.4" stroke-linecap="round"/>
+   <rect x="35" y="19" width="9" height="7" rx="2" fill="${C.pink}"/>
+   <rect x="46" y="20" width="7" height="6" rx="2" fill="${C.blue}"/>
+   <path d="M31 60h38" stroke="#E7E0D0" stroke-width="1.4"/>`)},
+ {k:'sink',n:'Wastafel',cat:'kitchen',price:640,place:'any',w:122,h:122,svg:S(`<rect x="16" y="42" width="68" height="38" rx="6" fill="${C.white}" ${st}/>
+    <rect x="26" y="48" width="48" height="16" rx="5" fill="${C.blue}" ${st}/>
+    <path d="M50 48V36q0-6 8-6" fill="none" ${st}/>`)},
+ {k:'dining_table',n:'Meja Makan',cat:'kitchen',price:1100,place:'floor',w:126,h:126,svg:S(`
+   <ellipse cx="50" cy="36" rx="42" ry="13" fill="${C.woodL}" ${st}/>
+   <ellipse cx="50" cy="33" rx="35" ry="10" fill="#EBCFA9" ${stT}/>
+   <path d="M22 34q28 9 56 0" stroke="#D6B183" stroke-width="1.6" fill="none"/>
+   <path d="M8 36v5q0 7 42 7t42-7v-5" fill="#D0A876" ${stT}/>
+   <path d="M50 48v30" stroke="${C.woodD}" stroke-width="7" stroke-linecap="round"/>
+   <ellipse cx="50" cy="82" rx="22" ry="7" fill="#D0A876" ${st}/>
+   <ellipse cx="34" cy="32" rx="8" ry="3.4" fill="#FFFDF6" ${stT}/>
+   <ellipse cx="66" cy="32" rx="8" ry="3.4" fill="#FFFDF6" ${stT}/>
+   <circle cx="50" cy="28" r="5" fill="${C.pink}" ${stT}/>`)},
+ {k:'dining_chair',n:'Kursi Makan',cat:'kitchen',price:260,place:'floor',w:100,h:100,svg:S(`<rect x="34" y="24" width="32" height="30" rx="7" fill="${C.wood}" ${st}/>
+    <rect x="30" y="52" width="40" height="9" rx="4" fill="${C.woodL}" ${st}/>
+    <path d="M36 61v18M64 61v18" ${st}/>`)},
+ {k:'kettle',n:'Teko',cat:'kitchen',price:180,place:'floor',w:74,h:74,svg:S(`<path d="M32 48h36v22a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8z" fill="${C.pink}" ${st}/>
+    <path d="M68 56q10 2 8 10" fill="none" ${st}/>
+    <path d="M42 48q8-8 16 0" fill="none" ${st}/>
+    <circle cx="50" cy="44" r="3.4" fill="${C.white}" ${st}/>`)},
+ {k:'cupboard',n:'Lemari Piring',cat:'kitchen',price:980,place:'floor',w:118,h:118,svg:S(`<rect x="22" y="18" width="56" height="64" rx="7" fill="${C.woodL}" ${st}/>
+    <path d="M50 18v64M22 48h56" ${st}/>
+    <circle cx="44" cy="34" r="2.4" fill="${C.line}"/><circle cx="56" cy="34" r="2.4" fill="${C.line}"/>`)},
+ {k:'fruit_bowl',n:'Mangkuk Buah',cat:'kitchen',price:220,place:'floor',w:82,h:82,svg:S(`<path d="M28 54h44q-2 18-22 18T28 54z" fill="${C.white}" ${st}/>
+    <circle cx="42" cy="48" r="7" fill="${C.pink}" ${st}/>
+    <circle cx="56" cy="50" r="6" fill="${C.green}" ${st}/>
+    <circle cx="50" cy="42" r="5.5" fill="${C.yellow}" ${st}/>`)},
+ {k:'bed_single',n:'Kasur Single',cat:'bedroom',price:0,place:'floor',w:118,h:118,svg:S(`<rect x="34" y="16" width="32" height="17" rx="5" fill="${C.wood}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="38" y="20" width="24" height="10" rx="3" fill="${C.woodD}" stroke="${L}" stroke-width="1.6"/><path d="M33 30h34l7 56H26z" fill="#FFFDF6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="38" y="24" width="24" height="11" rx="5" fill="#FFF7EA" stroke="${L}" stroke-width="1.7"/><path d="M29 56h42l3 24H26z" fill="${C.blue}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M29 56h42l.6 6H28.4z" fill="#C9E3F2" stroke="${L}" stroke-width="1.6"/><path d="M31 70q19-4 38 0" stroke="#C9E3F2" stroke-width="2" fill="none"/><path d="M26 86h48v5a4 4 0 0 1-4 4H30a4 4 0 0 1-4-4z" fill="#E9DCC6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M31 95v5M69 95v5" stroke="#A97F52" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'bed_double',n:'Kasur Double',cat:'bedroom',price:1900,place:'floor',w:158,h:158,svg:S(`<rect x="22" y="14" width="56" height="20" rx="6" fill="${C.wood}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="28" y="19" width="44" height="12" rx="4" fill="${C.woodD}" stroke="${L}" stroke-width="1.6"/><path d="M36 19v12M50 19v12M64 19v12" stroke="#B98B55" stroke-width="1.6"/><path d="M20 30h60l11 56H9z" fill="#FFFDF6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="25" y="24" width="22" height="11" rx="5" fill="#FFF7EA" stroke="${L}" stroke-width="1.7"/><rect x="53" y="24" width="22" height="11" rx="5" fill="${C.blue}" stroke="${L}" stroke-width="1.7"/><path d="M15 56h70l4 24H11z" fill="${C.pink}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M15 56h70l.7 6H14.3z" fill="#FBE7EE" stroke="${L}" stroke-width="1.6"/><path d="M18 70q32-5 64 0" stroke="#FBE7EE" stroke-width="2" fill="none"/><path d="M50 62v18" stroke="#EFC0D0" stroke-width="1.8"/><path d="M9 86h82v5a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4z" fill="#E9DCC6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M15 95v5M85 95v5" stroke="#A97F52" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'bed_canopy',n:'Kasur Kanopi',cat:'bedroom',price:4200,place:'floor',w:166,h:166,svg:S(`<rect x="26" y="14" width="48" height="20" rx="6" fill="${C.pinkD}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="32" y="19" width="36" height="12" rx="4" fill="${C.pink}" stroke="${L}" stroke-width="1.7"/><path d="M22 30h56l10 56H12z" fill="#FFFDF6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><rect x="27" y="24" width="21" height="11" rx="5" fill="#FFF7EA" stroke="${L}" stroke-width="1.7"/><rect x="52" y="24" width="21" height="11" rx="5" fill="${C.pink}" stroke="${L}" stroke-width="1.7"/><path d="M17 56h66l4 24H13z" fill="${C.lilac}" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M17 56h66l1 6H16z" fill="#DCD0F2" stroke="${L}" stroke-width="1.7"/><path d="M20 70q30-5 60 0" stroke="#DCD0F2" stroke-width="2" fill="none"/><path d="M12 86h76v5a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4z" fill="#E9DCC6" stroke="${L}" stroke-width="2.4" stroke-linejoin="round"/><path d="M18 95v5M82 95v5" stroke="#A97F52" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'nightstand',n:'Nakas',cat:'bedroom',price:320,place:'floor',w:96,h:96,svg:S(`
+   <rect x="24" y="26" width="52" height="56" rx="7" fill="${C.woodL}" ${st}/>
+   <rect x="30" y="33" width="40" height="19" rx="4" fill="#EFD4B2" ${stT}/>
+   <rect x="30" y="56" width="40" height="19" rx="4" fill="#EFD4B2" ${stT}/>
+   <path d="M34 33v19M34 56v19" stroke="#DFBE95" stroke-width="1.4"/>
+   <rect x="43" y="40" width="14" height="4" rx="2" fill="${C.woodD}" ${stT}/>
+   <rect x="43" y="63" width="14" height="4" rx="2" fill="${C.woodD}" ${stT}/>
+   <path d="M24 30h52" stroke="#DFBE95" stroke-width="2"/>
+   <path d="M30 82v8M70 82v8" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'wardrobe',n:'Lemari Baju',cat:'bedroom',price:1350,place:'floor',w:132,h:132,svg:S(`
+   <rect x="20" y="10" width="60" height="80" rx="7" fill="${C.wood}" ${st}/>
+   <rect x="26" y="17" width="22" height="66" rx="4" fill="#D4A26C" ${stT}/>
+   <rect x="52" y="17" width="22" height="66" rx="4" fill="#D4A26C" ${stT}/>
+   <path d="M31 24v52M57 24v52" stroke="#B98B55" stroke-width="1.6"/>
+   <path d="M45 44v14M55 44v14" stroke="${C.woodD}" stroke-width="3.4" stroke-linecap="round"/>
+   <path d="M20 14h60" stroke="#B98B55" stroke-width="2.4"/>
+   <path d="M24 90v6M76 90v6" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'vanity',n:'Meja Rias',cat:'bedroom',price:1750,place:'floor',w:116,h:116,svg:S(`<ellipse cx="50" cy="30" rx="17" ry="19" fill="${C.blue}" ${st}/>
+    <rect x="22" y="48" width="56" height="10" rx="4" fill="${C.woodL}" ${st}/>
+    <path d="M28 58v22M72 58v22" ${st}/>
+    <rect x="40" y="60" width="20" height="12" rx="3" fill="${C.white}" ${st}/>`)},
+ {k:'plush_bear',n:'Boneka Beruang',cat:'bedroom',price:400,place:'floor',w:63,h:63,svg:S(`<circle cx="34" cy="34" r="8" fill="${C.wood}" ${st}/><circle cx="66" cy="34" r="8" fill="${C.wood}" ${st}/>
+    <circle cx="50" cy="42" r="20" fill="${C.woodL}" ${st}/>
+    <ellipse cx="50" cy="70" rx="18" ry="14" fill="${C.wood}" ${st}/>
+    <circle cx="43" cy="40" r="2.6" fill="${C.line}"/><circle cx="57" cy="40" r="2.6" fill="${C.line}"/>
+    <path d="M46 48q4 4 8 0" fill="none" ${st}/>`)},
+ {k:'floor_cushion',n:'Bantal Duduk',cat:'bedroom',price:160,place:'floor',w:69,h:69,svg:S(`<rect x="22" y="50" width="56" height="24" rx="10" fill="${C.green}" ${st}/>
+    <path d="M32 50q18-6 36 0" fill="none" stroke="${C.greenD}" stroke-width="2.2"/>`)},
+ {k:'bathtub',n:'Bak Mandi',cat:'bathroom',price:1500,place:'floor',w:158,h:158,svg:S(`<path d="M16 44h68v20a12 12 0 0 1-12 12H28a12 12 0 0 1-12-12z" fill="${C.white}" ${st}/>
+    <path d="M22 52h56" stroke="${C.blue}" stroke-width="5" stroke-linecap="round"/>
+    <path d="M22 76v6M78 76v6" ${st}/>
+    <circle cx="34" cy="48" r="4" fill="#DFF1FA" ${st}/>`)},
+ {k:'toilet',n:'Toilet',cat:'bathroom',price:700,place:'floor',w:122,h:122,svg:S(`<rect x="34" y="24" width="32" height="24" rx="5" fill="${C.white}" ${st}/>
+    <path d="M30 48h40v14q0 14-20 14t-20-14z" fill="${C.white}" ${st}/>
+    <ellipse cx="50" cy="58" rx="12" ry="8" fill="#EAF6FC" ${st}/>`)},
+ {k:'shower',n:'Shower',cat:'bathroom',price:1150,place:'wall',w:118,h:118,svg:S(`<path d="M50 16v18" ${st}/>
+    <path d="M34 34h32l-4 8H38z" fill="${C.grey}" ${st}/>
+    <path d="M40 50v8M50 52v10M60 50v8" stroke="${C.blue}" stroke-width="3" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'bath_sink',n:'Wastafel Kecil',cat:'bathroom',price:480,place:'any',w:112,h:112,svg:S(`<path d="M26 46h48v14q0 10-10 10H36q-10 0-10-10z" fill="${C.white}" ${st}/>
+    <path d="M50 46V34q0-6 8-6" fill="none" ${st}/>
+    <path d="M40 76v6M60 76v6" ${st}/>`)},
+ {k:'towel_rack',n:'Gantungan Handuk',cat:'bathroom',price:240,place:'wall',w:75,h:75,svg:S(`<path d="M22 34h56" stroke="${C.line}" stroke-width="3.4" stroke-linecap="round"/>
+    <rect x="30" y="34" width="16" height="30" rx="4" fill="${C.pink}" ${st}/>
+    <rect x="54" y="34" width="16" height="26" rx="4" fill="${C.blue}" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'bath_mirror',n:'Cermin Bulat',cat:'bathroom',price:560,place:'wall',w:58,h:58,svg:S(`<circle cx="50" cy="50" r="26" fill="#EAF6FC" ${st}/>
+    <path d="M38 40q10-6 20 2" fill="none" stroke="${C.white}" stroke-width="4" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'garden_bench',n:'Bangku Taman',cat:'garden',price:600,place:'floor',w:124,h:124,svg:S(`<rect x="16" y="48" width="68" height="9" rx="4" fill="${C.wood}" ${st}/>
+    <rect x="20" y="30" width="60" height="8" rx="4" fill="${C.wood}" ${st}/>
+    <rect x="20" y="40" width="60" height="7" rx="3" fill="${C.woodL}" ${st}/>
+    <path d="M24 57v20M76 57v20M24 38v12M76 38v12" ${st}/>`)},
+ {k:'swing',n:'Ayunan',cat:'garden',price:2400,place:'floor',w:126,h:126,svg:S(`<path d="M18 82L34 20M82 82L66 20M30 22h40" ${st}/>
+    <path d="M40 24v28M60 24v28" ${st}/>
+    <rect x="34" y="52" width="32" height="9" rx="4" fill="${C.pink}" ${st}/>`)},
+ {k:'flower_bed',n:'Petak Bunga',cat:'garden',price:380,place:'floor',w:105,h:105,svg:S(`<path d="M18 58h64v16a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6z" fill="${C.soil}" ${st}/>
+    <circle cx="32" cy="50" r="7" fill="${C.pink}" ${st}/>
+    <circle cx="50" cy="46" r="7" fill="${C.yellow}" ${st}/>
+    <circle cx="68" cy="50" r="7" fill="${C.lilac}" ${st}/>
+    <circle cx="32" cy="50" r="2.4" fill="${C.white}"/><circle cx="50" cy="46" r="2.4" fill="${C.white}"/>
+    <circle cx="68" cy="50" r="2.4" fill="${C.white}"/>`)},
+ {k:'watering_can',n:'Penyiram',cat:'garden',price:200,place:'floor',w:84,h:84,svg:S(`<path d="M32 48h32v22a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8z" fill="${C.green}" ${st}/>
+    <path d="M64 54l14-8-4 14" fill="${C.green}" ${st}/>
+    <path d="M40 48q8-10 16 0" fill="none" ${st}/>`)},
+ {k:'garden_fence',n:'Pagar Kayu',cat:'garden',price:300,place:'floor',w:126,h:126,svg:S(`<path d="M24 40v40M40 36v44M56 36v44M72 40v40" stroke="${C.wood}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M18 52h64M18 68h64" stroke="${C.woodD}" stroke-width="5" stroke-linecap="round"/>`)},
+ {k:'bird_bath',n:'Kolam Burung',cat:'garden',price:880,place:'floor',w:84,h:84,svg:S(`<ellipse cx="50" cy="40" rx="24" ry="9" fill="#EAF6FC" ${st}/>
+    <path d="M44 46v26M56 46v26" ${st}/>
+    <ellipse cx="50" cy="76" rx="18" ry="7" fill="${C.grey}" ${st}/>`)},
+ {k:'mushroom_deco',n:'Jamur Hias',cat:'garden',price:150,place:'floor',w:74,h:74,svg:S(`<path d="M26 52q0-18 24-18t24 18z" fill="${C.pink}" ${st}/>
+    <circle cx="38" cy="44" r="3.4" fill="${C.white}"/><circle cx="58" cy="42" r="4" fill="${C.white}"/>
+    <path d="M42 52h16v20q0 6-8 6t-8-6z" fill="${C.cream}" ${st}/>`)},
+ {k:'plant_small',n:'Tanaman Kecil',cat:'plants',price:0,place:'floor',w:92,h:92,svg:S(`
+   <path d="M32 60h36l-5 32H37z" fill="#F0A87E" ${st}/>
+   <path d="M30 54h40v9H30z" fill="${C.peach}" ${st}/>
+   <path d="M34 72h32" stroke="#DE8F66" stroke-width="2"/>
+   <path d="M50 54q-20-6-18-26 18 4 18 26z" fill="${C.leaf}" ${st}/>
+   <path d="M50 54q20-9 20-30-20 5-20 30z" fill="${C.green}" ${st}/>
+   <path d="M50 54q-14-12-26-10 7 14 26 10z" fill="${C.greenD}" ${st}/>
+   <path d="M42 36q5 8 8 18M60 32q-5 10-10 22" stroke="#4E8A5E" stroke-width="1.4" fill="none" opacity=".65"/>`)},
+ {k:'plant_tall',n:'Tanaman Tinggi',cat:'plants',price:520,place:'floor',w:110,h:110,svg:S(`<path d="M38 62h24l-3 20H41z" fill="${C.peach}" ${st}/>
+    <path d="M50 62V26" ${st}/>
+    <path d="M50 34q-14-2-16-14 14-2 16 14zM50 44q14-2 16-14-14-2-16 14zM50 54q-12-2-14-12 12-2 14 12z" fill="${C.leaf}" ${st}/>`)},
+ {k:'cactus',n:'Kaktus',cat:'plants',price:280,place:'floor',w:92,h:92,svg:S(`<path d="M38 64h24l-3 18H41z" fill="${C.peach}" ${st}/>
+    <path d="M44 64V38a6 6 0 0 1 12 0v26z" fill="${C.leaf}" ${st}/>
+    <path d="M44 50h-8v-8M56 46h8v-10" fill="none" ${st}/>`)},
+ {k:'hanging_plant',n:'Tanaman Gantung',cat:'plants',price:420,place:'wall',w:68,h:68,svg:S(`<path d="M50 14v14" ${st}/>
+    <path d="M34 28h32l-4 14H38z" fill="${C.cream}" ${st}/>
+    <path d="M40 42q-6 16 2 26M50 42q0 20-2 28M60 42q6 14-2 24" fill="none" stroke="${C.leaf}" stroke-width="3.4" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'flower_vase',n:'Vas Bunga',cat:'plants',price:340,place:'floor',w:88,h:88,svg:S(`<path d="M40 54h20l-3 24H43z" fill="${C.white}" ${st}/>
+    <path d="M50 54V38M44 44l-6-8M56 44l6-8" fill="none" ${st}/>
+    <circle cx="50" cy="34" r="6" fill="${C.pink}" ${st}/>
+    <circle cx="37" cy="34" r="5" fill="${C.yellow}" ${st}/>
+    <circle cx="63" cy="34" r="5" fill="${C.lilac}" ${st}/>`)},
+ {k:'bonsai',n:'Bonsai',cat:'plants',price:1250,place:'floor',w:96,h:96,svg:S(`<path d="M34 66h32l-4 14H38z" fill="${C.soil}" ${st}/>
+    <path d="M50 66V46" ${st}/>
+    <path d="M50 46q-16 0-16-10t16-6 16 6-16 10z" fill="${C.leaf}" ${st}/>`)},
+ {k:'floor_lamp',n:'Lampu Berdiri',cat:'lighting',price:640,place:'floor',w:110,h:110,svg:S(`
+   <path d="M32 24h36l8 20H24z" fill="${C.yellow}" ${st}/>
+   <path d="M32 24h36l2 5H30z" fill="#FFF0C4" ${stT}/>
+   <path d="M40 30v13M50 29v15M60 30v13" stroke="${C.yellowD}" stroke-width="1.4"/>
+   <ellipse cx="50" cy="44" rx="26" ry="4" fill="#FFF0C4" ${stT}/>
+   <path d="M50 46v38" stroke="${C.grey}" stroke-width="4"/>
+   <ellipse cx="50" cy="86" rx="17" ry="6" fill="${C.grey}" ${st}/>
+   <ellipse cx="50" cy="84" rx="11" ry="3.4" fill="#E6E1D6" ${stT}/>`)},
+ {k:'table_lamp',n:'Lampu Meja',cat:'lighting',price:300,place:'floor',w:82,h:82,svg:S(`<path d="M38 40h24l5 14H33z" fill="${C.pink}" ${st}/>
+    <path d="M50 54v16" ${st}/>
+    <ellipse cx="50" cy="72" rx="11" ry="5" fill="${C.grey}" ${st}/>`)},
+ {k:'ceiling_light',n:'Lampu Gantung',cat:'lighting',price:780,place:'wall',w:69,h:69,svg:S(`<path d="M50 12v16" ${st}/>
+    <path d="M32 28h36l8 18H24z" fill="${C.cream}" ${st}/>
+    <path d="M40 52q10 8 20 0" fill="none" stroke="${C.yellowD}" stroke-width="3" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'fairy_lights',n:'Lampu Kelap-kelip',cat:'lighting',price:460,place:'wall',w:102,h:102,svg:S(`<path d="M14 28q18 16 36 0t36 0" fill="none" ${st}/>
+    <circle cx="26" cy="36" r="4" fill="${C.yellow}" ${st}/>
+    <circle cx="44" cy="40" r="4" fill="${C.pink}" ${st}/>
+    <circle cx="62" cy="38" r="4" fill="${C.blue}" ${st}/>
+    <circle cx="78" cy="34" r="4" fill="${C.green}" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'lantern',n:'Lentera',cat:'lighting',price:520,place:'floor',w:92,h:92,svg:S(`<path d="M40 30h20l4 8H36z" fill="${C.woodD}" ${st}/>
+    <rect x="36" y="38" width="28" height="30" rx="4" fill="#FFF0C4" ${st}/>
+    <path d="M40 72h20l-2 8H42z" fill="${C.woodD}" ${st}/>
+    <path d="M50 22v8" ${st}/>`)},
+ {k:'wall_frame',n:'Bingkai Foto',cat:'wall',price:0,place:'wall',w:56,h:56,svg:S(`<rect x="24" y="24" width="52" height="52" rx="5" fill="${C.wood}" ${st}/>
+    <rect x="32" y="32" width="36" height="36" rx="3" fill="${C.white}" ${st}/>
+    <path d="M36 60l10-12 8 8 6-6 4 10z" fill="${C.green}"/>
+    <circle cx="42" cy="42" r="3.4" fill="${C.yellow}"/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_clock',n:'Jam Dinding',cat:'wall',price:380,place:'wall',w:50,h:50,svg:S(`<circle cx="50" cy="50" r="26" fill="${C.white}" ${st}/>
+    <path d="M50 34v16l10 6" fill="none" ${st}/>
+    <circle cx="50" cy="50" r="3" fill="${C.line}"/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_shelf',n:'Rak Dinding',cat:'wall',price:420,place:'wall',w:84,h:84,svg:S(`<rect x="18" y="52" width="64" height="8" rx="3" fill="${C.wood}" ${st}/>
+    <rect x="28" y="34" width="9" height="18" rx="2" fill="${C.pink}" ${st}/>
+    <rect x="40" y="38" width="9" height="14" rx="2" fill="${C.blue}" ${st}/>
+    <circle cx="62" cy="45" r="7" fill="${C.green}" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_garland',n:'Bendera Hias',cat:'wall',price:260,place:'wall',w:96,h:96,svg:S(`<path d="M14 26q18 14 36 0t36 0" fill="none" ${st}/>
+    <path d="M24 32l7 12 7-12z" fill="${C.pink}" ${st}/>
+    <path d="M42 36l7 12 7-12z" fill="${C.yellow}" ${st}/>
+    <path d="M60 34l7 12 7-12z" fill="${C.blue}" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_mirror_oval',n:'Cermin Oval',cat:'wall',price:820,place:'wall',w:69,h:69,svg:S(`<ellipse cx="50" cy="50" rx="22" ry="28" fill="#EAF6FC" ${st}/>
+    <ellipse cx="50" cy="50" rx="16" ry="22" fill="#F6FBFD" ${st}/>
+    <path d="M40 40q8-6 14 2" fill="none" stroke="${C.white}" stroke-width="4" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_neon_heart',n:'Neon Hati',cat:'wall',price:2800,place:'wall',w:63,h:63,svg:S(`<path d="M50 74S22 58 22 42a14 14 0 0 1 28-6 14 14 0 0 1 28 6c0 16-28 32-28 32z"
+      fill="none" stroke="${C.pinkD}" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M50 68S28 55 28 42a10 10 0 0 1 22-4" fill="none" stroke="#FBD3DE" stroke-width="3"/>`,{noShadow:1,noGrain:1})},
+ {k:'wall_window',n:'Jendela',cat:'wall',price:1200,place:'wall',w:72,h:72,svg:S(`<rect x="22" y="22" width="56" height="56" rx="6" fill="#DFF1FA" ${st}/>
+    <path d="M50 22v56M22 50h56" ${st}/>
+    <path d="M28 70q10-14 22-6" fill="none" stroke="${C.white}" stroke-width="4" stroke-linecap="round"/>`,{noShadow:1,noGrain:1})},
+ {k:'rug_round',n:'Karpet Bulat',cat:'floor',price:0,place:'rug',w:172,h:172,svg:S(`
+   <ellipse cx="50" cy="52" rx="46" ry="17" fill="#FFF4E2" ${st}/>
+   <ellipse cx="50" cy="52" rx="38" ry="14" fill="${C.pink}" ${stT}/>
+   <ellipse cx="50" cy="52" rx="27" ry="10" fill="#FBE7EE" ${stT}/>
+   <ellipse cx="50" cy="52" rx="15" ry="5.5" fill="${C.pinkD}" ${stT}/>
+   <ellipse cx="50" cy="52" rx="6" ry="2.4" fill="#FFF4E2"/>
+   <path d="M96.0 52.0 l4.0 0.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M93.2 57.8 l3.8 0.5" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M85.2 62.9 l3.1 1.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M73.0 66.7 l2.0 1.4" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M58.0 68.7 l0.7 1.6" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M42.0 68.7 l-0.7 1.6" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M27.0 66.7 l-2.0 1.4" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M14.8 62.9 l-3.1 1.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M6.8 57.8 l-3.8 0.5" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M4.0 52.0 l-4.0 0.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M6.8 46.2 l-3.8 -0.5" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M14.8 41.1 l-3.1 -1.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M27.0 37.3 l-2.0 -1.4" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M42.0 35.3 l-0.7 -1.6" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M58.0 35.3 l0.7 -1.6" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M73.0 37.3 l2.0 -1.4" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M85.2 41.1 l3.1 -1.0" stroke="${L}" stroke-width="1.4" opacity=".5"/><path d="M93.2 46.2 l3.8 -0.5" stroke="${L}" stroke-width="1.4" opacity=".5"/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'rug_stripe',n:'Karpet Garis',cat:'floor',price:340,place:'rug',w:168,h:168,svg:S(`<rect x="14" y="42" width="72" height="28" rx="6" fill="${C.white}" ${st}/>
+    <path d="M14 50h72M14 58h72M14 66h72" stroke="${C.blue}" stroke-width="3.4"/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'rug_star',n:'Karpet Bintang',cat:'floor',price:760,place:'rug',w:172,h:172,svg:S(`<ellipse cx="50" cy="56" rx="36" ry="18" fill="${C.lilac}" ${st}/>
+    <path d="M50 44l3.5 7 8 1-6 5.5 1.6 8-7-4-7 4 1.6-8-6-5.5 8-1z" fill="${C.yellow}" ${st}/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'rug_luxury',n:'Karpet Mewah',cat:'floor',price:3600,place:'rug',w:184,h:184,svg:S(`<ellipse cx="50" cy="56" rx="38" ry="20" fill="${C.yellow}" ${st}/>
+    <ellipse cx="50" cy="56" rx="27" ry="14" fill="#FFF0C4" ${st}/>
+    <ellipse cx="50" cy="56" rx="14" ry="7" fill="${C.yellowD}" ${st}/>
+    <circle cx="24" cy="56" r="3" fill="${C.white}"/><circle cx="76" cy="56" r="3" fill="${C.white}"/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'tatami',n:'Tatami',cat:'floor',price:900,place:'rug',w:168,h:168,svg:S(`<rect x="14" y="40" width="72" height="32" rx="4" fill="#E8DFC0" ${st}/>
+    <path d="M38 40v32M62 40v32" ${st}/>
+    <path d="M14 56h72" stroke="${C.woodD}" stroke-width="2"/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'basket',n:'Keranjang',cat:'storage',price:180,place:'floor',w:84,h:84,svg:S(`<path d="M28 48h44l-5 26a6 6 0 0 1-6 5H39a6 6 0 0 1-6-5z" fill="${C.woodL}" ${st}/>
+    <path d="M36 48q14-12 28 0" fill="none" ${st}/>
+    <path d="M40 56v18M50 56v20M60 56v18" stroke="${C.woodD}" stroke-width="2"/>`)},
+ {k:'wood_crate',n:'Peti Kayu',cat:'storage',price:240,place:'floor',w:92,h:92,svg:S(`<rect x="26" y="46" width="48" height="34" rx="4" fill="${C.wood}" ${st}/>
+    <path d="M26 58h48M50 46v34" ${st}/>`)},
+ {k:'toy_box',n:'Kotak Mainan',cat:'storage',price:520,place:'floor',w:104,h:104,svg:S(`<rect x="24" y="48" width="52" height="32" rx="6" fill="${C.blue}" ${st}/>
+    <path d="M24 58h52" ${st}/>
+    <circle cx="38" cy="68" r="4" fill="${C.pink}"/><circle cx="50" cy="70" r="4" fill="${C.yellow}"/>
+    <circle cx="62" cy="68" r="4" fill="${C.green}"/>`)},
+ {k:'drawer_pastel',n:'Laci Pastel',cat:'storage',price:1050,place:'floor',w:92,h:92,svg:S(`<rect x="26" y="30" width="48" height="50" rx="6" fill="${C.white}" ${st}/>
+    <path d="M26 46h48M26 62h48" ${st}/>
+    <circle cx="50" cy="38" r="2.6" fill="${C.pink}"/><circle cx="50" cy="54" r="2.6" fill="${C.blue}"/>
+    <circle cx="50" cy="70" r="2.6" fill="${C.green}"/>`)},
+ {k:'candle_set',n:'Lilin',cat:'deco',price:150,place:'floor',w:74,h:74,svg:S(`<rect x="34" y="50" width="10" height="26" rx="3" fill="${C.cream}" ${st}/>
+    <rect x="48" y="42" width="10" height="34" rx="3" fill="${C.pink}" ${st}/>
+    <rect x="62" y="54" width="10" height="22" rx="3" fill="${C.blue}" ${st}/>
+    <path d="M39 50v-6M53 42v-6M67 54v-6" stroke="${C.yellowD}" stroke-width="3" stroke-linecap="round"/>`)},
+ {k:'photo_stack',n:'Tumpukan Foto',cat:'deco',price:220,place:'floor',w:80,h:80,svg:S(`<rect x="26" y="46" width="34" height="30" rx="3" fill="${C.white}" transform="rotate(-8 43 61)" ${st}/>
+    <rect x="38" y="44" width="34" height="30" rx="3" fill="${C.white}" transform="rotate(6 55 59)" ${st}/>
+    <circle cx="56" cy="56" r="5" fill="${C.pink}"/>`)},
+ {k:'globe',n:'Globe',cat:'deco',price:680,place:'floor',w:92,h:92,svg:S(`<circle cx="50" cy="46" r="20" fill="${C.blue}" ${st}/>
+    <path d="M34 40q16 8 32 0M50 26v40" fill="none" stroke="${C.blueD}" stroke-width="2"/>
+    <path d="M50 66v10M38 78h24" ${st}/>`)},
+ {k:'trophy',n:'Piala',cat:'deco',price:1900,place:'floor',w:92,h:92,svg:S(`<path d="M36 26h28v14q0 14-14 14T36 40z" fill="${C.yellow}" ${st}/>
+    <path d="M36 30h-8q0 12 10 12M64 30h8q0 12-10 12" fill="none" ${st}/>
+    <path d="M50 54v12M38 74h24l-2-8H40z" fill="${C.yellowD}" ${st}/>`)},
+ {k:'aquarium',n:'Akuarium',cat:'deco',price:2600,place:'floor',w:97,h:97,svg:S(`<rect x="18" y="30" width="64" height="44" rx="6" fill="#DFF1FA" ${st}/>
+    <path d="M18 40h64" stroke="${C.blueD}" stroke-width="2.4"/>
+    <path d="M36 54q10-9 20 0-10 9-20 0z" fill="${C.peach}" ${st}/>
+    <path d="M36 54l-8-6v12z" fill="${C.peach}" ${st}/>
+    <circle cx="50" cy="51" r="2" fill="${C.line}"/>
+    <circle cx="66" cy="46" r="2.6" fill="${C.white}"/><circle cx="62" cy="38" r="2" fill="${C.white}"/>
+    <path d="M24 74h52" stroke="${C.yellowD}" stroke-width="5" stroke-linecap="round"/>
+    <path d="M32 74v-8M68 74v-10" stroke="${C.greenD}" stroke-width="3" stroke-linecap="round"/>`)},
+ {k:'gramophone',n:'Gramofon',cat:'deco',price:4600,place:'floor',w:80,h:80,svg:S(`<rect x="28" y="60" width="44" height="20" rx="4" fill="${C.wood}" ${st}/>
+    <ellipse cx="50" cy="60" rx="22" ry="6" fill="${C.woodL}" ${st}/>
+    <path d="M56 58q-6-14 2-20" fill="none" ${st}/>
+    <path d="M58 38q-4-16 10-20t18 10q-2 14-16 16-8 1-12-6z" fill="${C.yellow}" ${st}/>
+    <ellipse cx="72" cy="30" rx="9" ry="12" fill="#FFF0C4" ${st} transform="rotate(20 72 30)"/>`)},
+ {k:'pet_bed',n:'Kasur Pet',cat:'pet',price:0,place:'floor',w:88,h:88,svg:S(`<ellipse cx="50" cy="62" rx="30" ry="16" fill="${C.pink}" ${st}/>
+    <ellipse cx="50" cy="60" rx="20" ry="10" fill="#FBD3DE" ${st}/>`)},
+ {k:'pet_bowl',n:'Mangkuk Pet',cat:'pet',price:160,place:'floor',w:74,h:74,svg:S(`<path d="M30 54h40l-5 18a6 6 0 0 1-6 4H41a6 6 0 0 1-6-4z" fill="${C.blue}" ${st}/>
+    <ellipse cx="50" cy="54" rx="20" ry="6" fill="${C.peach}" ${st}/>`)},
+ {k:'scratch_post',n:'Tiang Garuk',cat:'pet',price:540,place:'floor',w:100,h:100,svg:S(`<ellipse cx="50" cy="76" rx="20" ry="8" fill="${C.wood}" ${st}/>
+    <rect x="42" y="30" width="16" height="46" rx="4" fill="${C.woodL}" ${st}/>
+    <rect x="30" y="20" width="40" height="12" rx="4" fill="${C.wood}" ${st}/>`)},
+ {k:'pet_house',n:'Rumah Pet',cat:'pet',price:1300,place:'floor',w:94,h:94,svg:S(`<path d="M20 50L50 24l30 26v26a5 5 0 0 1-5 5H25a5 5 0 0 1-5-5z" fill="${C.peach}" ${st}/>
+    <path d="M38 81V60a12 12 0 0 1 24 0v21" fill="${C.dark}" ${st}/>`)},
+ {k:'pet_toy_ball',n:'Bola Pet',cat:'pet',price:120,place:'floor',w:62,h:62,svg:S(`<circle cx="50" cy="58" r="18" fill="${C.green}" ${st}/>
+    <path d="M34 52q16 10 32 0M50 40v36" fill="none" stroke="${C.greenD}" stroke-width="2.4"/>`)},
+ {k:'xmas_tree',n:'Pohon Natal',cat:'seasonal',price:2200,place:'floor',w:118,h:118,svg:S(`<path d="M50 16l16 22H34zM50 30l20 26H30zM50 46l24 28H26z" fill="${C.leaf}" ${st}/>
+    <rect x="44" y="74" width="12" height="10" rx="2" fill="${C.wood}" ${st}/>
+    <circle cx="42" cy="52" r="3" fill="${C.pink}"/><circle cx="58" cy="60" r="3" fill="${C.yellow}"/>
+    <circle cx="50" cy="12" r="4" fill="${C.yellow}" ${st}/>`)},
+ {k:'pumpkin',n:'Labu',cat:'seasonal',price:400,place:'floor',w:82,h:82,svg:S(`<ellipse cx="50" cy="58" rx="26" ry="20" fill="${C.peach}" ${st}/>
+    <path d="M40 42q-4 16 0 32M60 42q4 16 0 32" fill="none" stroke="#E09A6A" stroke-width="2.4"/>
+    <path d="M50 38v-8" ${st}/>`)},
+ {k:'sakura_branch',n:'Ranting Sakura',cat:'seasonal',price:1500,place:'wall',w:94,h:94,svg:S(`<path d="M18 74q20-10 30-30t34-24" fill="none" ${st}/>
+    <circle cx="46" cy="46" r="5" fill="${C.pink}" ${st}/>
+    <circle cx="62" cy="32" r="5" fill="#FBD3DE" ${st}/>
+    <circle cx="34" cy="60" r="4.4" fill="${C.pink}" ${st}/>
+    <circle cx="76" cy="24" r="4.4" fill="#FBD3DE" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'snow_globe',n:'Bola Salju',cat:'seasonal',price:1800,place:'floor',w:88,h:88,svg:S(`<circle cx="50" cy="46" r="22" fill="#EAF6FC" ${st}/>
+    <path d="M42 54l8-14 8 14z" fill="${C.white}" ${st}/>
+    <circle cx="40" cy="38" r="2" fill="${C.white}"/><circle cx="60" cy="42" r="2" fill="${C.white}"/>
+    <path d="M30 70h40l-4 10H34z" fill="${C.wood}" ${st}/>`)},
+ {k:'ottoman',n:'Puff Bulat',cat:'living',price:290,place:'floor',w:78,h:78,svg:S(`
+   <ellipse cx="50" cy="58" rx="30" ry="20" fill="${C.lilac}" ${st}/>
+   <ellipse cx="50" cy="52" rx="30" ry="18" fill="#DCD0F2" ${st}/>
+   <path d="M28 52q22 10 44 0" stroke="${C.lilac}" stroke-width="2.2" fill="none"/>
+   <path d="M34 74v6M66 74v6" ${stT}/>`)},
+ {k:'floor_mirror',n:'Cermin Berdiri',cat:'living',price:1450,place:'floor',w:108,h:108,svg:S(`
+   <rect x="30" y="10" width="40" height="72" rx="18" fill="#EBD9BF" ${st}/>
+   <rect x="36" y="16" width="28" height="60" rx="14" fill="#F4FBFD" ${stT}/>
+   <path d="M42 32q10-7 16 3" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+   <path d="M38 82l-6 12M62 82l6 12" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`)},
+ {k:'magazine',n:'Rak Majalah',cat:'living',price:240,place:'floor',w:76,h:76,svg:S(`
+   <path d="M28 46h44l-4 30H32z" fill="${C.woodL}" ${st}/>
+   <rect x="34" y="34" width="12" height="16" rx="2" fill="${C.pink}" ${stT}/>
+   <rect x="47" y="30" width="12" height="20" rx="2" fill="${C.blue}" ${stT}/>
+   <rect x="60" y="36" width="11" height="14" rx="2" fill="${C.green}" ${stT}/>
+   <path d="M34 76v6M66 76v6" ${stT}/>`)},
+ {k:'microwave',n:'Microwave',cat:'kitchen',price:1250,place:'any',w:108,h:108,svg:S(`
+   <rect x="14" y="34" width="72" height="42" rx="7" fill="#EFEAE0" ${st}/>
+   <rect x="22" y="42" width="40" height="26" rx="4" fill="#6B5340" ${st}/>
+   <rect x="26" y="46" width="32" height="18" rx="3" fill="#8A7358"/>
+   <circle cx="74" cy="50" r="5" fill="${C.grey}" ${stT}/>
+   <path d="M68 62h12M68 68h12" stroke="${L}" stroke-width="2.4" stroke-linecap="round"/>`)},
+ {k:'coffee_machine',n:'Mesin Kopi',cat:'kitchen',price:1650,place:'any',w:96,h:96,svg:S(`
+   <rect x="26" y="22" width="48" height="54" rx="7" fill="${C.grey}" ${st}/>
+   <rect x="32" y="28" width="36" height="16" rx="4" fill="#6B5340" ${stT}/>
+   <path d="M40 50h20v6H40z" fill="#8A7358" ${stT}/>
+   <path d="M38 58h24v14a5 5 0 0 1-5 5H43a5 5 0 0 1-5-5z" fill="#FFFDF6" ${st}/>
+   <path d="M62 62q7 1 6 6" fill="none" ${stT}/>`)},
+ {k:'spice_rack',n:'Rak Bumbu',cat:'kitchen',price:420,place:'wall',w:104,h:104,svg:S(`
+   <rect x="14" y="60" width="72" height="8" rx="3" fill="${C.wood}" ${st}/>
+   <path d="M22 68v6M78 68v6" ${stT}/>
+   ${[[30,'#F5B7C8'],[44,'#A8CFE8'],[58,'#9FD8A8'],[71,'#FFD98A']].map(([x,c])=>
+     `<g><rect x="${x-6}" y="42" width="12" height="18" rx="3" fill="${c}" ${stT}/>
+         <rect x="${x-3}" y="38" width="6" height="5" rx="2" fill="${C.woodD}" ${stT}/></g>`).join('')}`,{noShadow:1,noGrain:1})},
+ {k:'pot_rack',n:'Panci Gantung',cat:'kitchen',price:560,place:'wall',w:104,h:104,svg:S(`
+   <path d="M14 30h72" stroke="${L}" stroke-width="3.6" stroke-linecap="round"/>
+   <path d="M28 30v10M50 30v10M72 30v10" ${stT}/>
+   <path d="M18 40h20v14a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill="${C.blue}" ${st}/>
+   <path d="M40 40h20v18a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill="${C.peach}" ${st}/>
+   <path d="M62 40h20v12a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill="${C.green}" ${st}/>`,{noShadow:1,noGrain:1})},
+ {k:'bunk_bed',n:'Kasur Tingkat',cat:'bedroom',price:2600,place:'floor',w:150,h:150,svg:S(`
+   <rect x="16" y="14" width="68" height="12" rx="4" fill="#FFFDF6" ${st}/>
+   <rect x="20" y="10" width="18" height="8" rx="3" fill="${C.blue}" ${stT}/>
+   <rect x="16" y="52" width="68" height="12" rx="4" fill="#FFFDF6" ${st}/>
+   <rect x="20" y="48" width="18" height="8" rx="3" fill="${C.pink}" ${stT}/>
+   <path d="M18 8v84M82 8v84" stroke="${C.wood}" stroke-width="6" stroke-linecap="round"/>
+   <path d="M58 26v26M70 26v26" stroke="${C.woodD}" stroke-width="3.4"/>
+   <path d="M58 32h12M58 40h12M58 48h12" stroke="${C.woodD}" stroke-width="3"/>`)},
+ {k:'desk',n:'Meja Belajar',cat:'bedroom',price:980,place:'floor',w:112,h:112,svg:S(`
+   <rect x="14" y="44" width="72" height="10" rx="4" fill="${C.woodL}" ${st}/>
+   <rect x="60" y="54" width="26" height="30" rx="4" fill="${C.wood}" ${st}/>
+   <path d="M60 66h26" ${stT}/><circle cx="73" cy="60" r="2.4" fill="${L}"/><circle cx="73" cy="75" r="2.4" fill="${L}"/>
+   <path d="M20 54v30" stroke="${C.woodD}" stroke-width="5" stroke-linecap="round"/>
+   <rect x="24" y="30" width="20" height="14" rx="3" fill="${C.blue}" ${stT}/>
+   <path d="M30 44h8v4h-8z" fill="${C.grey}" ${stT}/>`)},
+ {k:'laundry',n:'Keranjang Cucian',cat:'bathroom',price:320,place:'floor',w:80,h:80,svg:S(`
+   <path d="M28 40h44l-5 38a7 7 0 0 1-7 6H40a7 7 0 0 1-7-6z" fill="#FFFDF6" ${st}/>
+   <path d="M36 40v42M50 40v44M64 40v42" stroke="${C.grey}" stroke-width="2.4"/>
+   <path d="M26 40h48" stroke="${L}" stroke-width="3" stroke-linecap="round"/>
+   <path d="M40 34q10-8 20 0" fill="${C.pink}" ${stT}/>`)},
+ {k:'bath_shelf',n:'Rak Mandi',cat:'bathroom',price:480,place:'wall',w:100,h:100,svg:S(`
+   <rect x="18" y="36" width="64" height="7" rx="3" fill="#FFFDF6" ${st}/>
+   <rect x="18" y="62" width="64" height="7" rx="3" fill="#FFFDF6" ${st}/>
+   <path d="M22 36v33M78 36v33" stroke="${C.grey}" stroke-width="3"/>
+   <rect x="28" y="22" width="12" height="14" rx="3" fill="${C.pink}" ${stT}/>
+   <rect x="46" y="24" width="11" height="12" rx="3" fill="${C.blue}" ${stT}/>
+   <circle cx="66" cy="30" r="6" fill="${C.green}" ${stT}/>
+   <rect x="30" y="50" width="20" height="12" rx="4" fill="#F7D9E2" ${stT}/>`,{noShadow:1,noGrain:1})},
+ {k:'pergola',n:'Pergola',cat:'garden',price:2900,place:'floor',w:150,h:150,svg:S(`
+   <path d="M12 26h76" stroke="${C.wood}" stroke-width="6" stroke-linecap="round"/>
+   ${[22,36,50,64,78].map(x=>`<path d="M${x} 20v12" stroke="${C.woodD}" stroke-width="4" stroke-linecap="round"/>`).join('')}
+   <path d="M18 26v62M82 26v62" stroke="${C.wood}" stroke-width="7" stroke-linecap="round"/>
+   <path d="M18 40q10 10 0 20M82 40q-10 10 0 20" fill="none" stroke="${C.leaf}" stroke-width="4"/>
+   <circle cx="26" cy="46" r="4" fill="${C.pink}"/><circle cx="74" cy="52" r="4" fill="${C.lilac}"/>`)},
+ {k:'pond',n:'Kolam Ikan',cat:'garden',price:1900,place:'rug',w:170,h:170,svg:S(`
+   <ellipse cx="50" cy="54" rx="44" ry="24" fill="#BDB6A6" ${st}/>
+   <ellipse cx="50" cy="54" rx="36" ry="18" fill="#DFF1FA" ${stT}/>
+   <path d="M30 50q10-5 18 0" stroke="#fff" stroke-width="2.6" fill="none"/>
+   <path d="M56 58q8-6 14 0-6 6-14 0z" fill="${C.peach}" ${stT}/>
+   <ellipse cx="38" cy="60" rx="8" ry="4" fill="${C.leaf}" ${stT}/>`,{noShadow:1,noGrain:1,noSheen:1})},
+ {k:'garden_light',n:'Lampu Taman',cat:'garden',price:540,place:'floor',w:76,h:76,svg:S(`
+   <path d="M40 26h20l5 12H35z" fill="#FFF0C4" ${st}/>
+   <path d="M50 38v42" stroke="${C.grey}" stroke-width="5" stroke-linecap="round"/>
+   <path d="M42 80h16l-2 8H44z" fill="${C.woodD}" ${st}/>`)},
+ {k:'sunflower',n:'Bunga Matahari',cat:'plants',price:460,place:'floor',w:88,h:88,svg:S(`
+   <path d="M40 66h20l-3 22H43z" fill="${C.peach}" ${st}/>
+   <path d="M50 66V34" stroke="${C.greenD}" stroke-width="3.4"/>
+   <path d="M50 48q-12 2-14-6 12-4 14 6z" fill="${C.leaf}" ${stT}/>
+   ${Array.from({length:8},(_,i)=>{const a=i*45*Math.PI/180;
+     return `<ellipse cx="${50+Math.cos(a)*12}" cy="${28+Math.sin(a)*12}" rx="7" ry="4.5" fill="${C.yellow}" ${stT} transform="rotate(${i*45} ${50+Math.cos(a)*12} ${28+Math.sin(a)*12})"/>`}).join('')}
+   <circle cx="50" cy="28" r="8" fill="#B98B55" ${st}/>`)},
+ {k:'string_photo',n:'Foto Gantung',cat:'wall',price:340,place:'wall',w:124,h:124,svg:S(`
+   <path d="M8 30q22 14 42 0t42 0" fill="none" ${st}/>
+   ${[[24,40],[46,44],[68,40]].map(([x,y],i)=>
+     `<g><path d="M${x} ${y-8}v6" ${stT}/><rect x="${x-9}" y="${y}" width="18" height="16" rx="2" fill="#FFFDF6" ${stT}/>
+      <circle cx="${x}" cy="${y+7}" r="4" fill="${[C.pink,C.blue,C.green][i]}"/></g>`).join('')}`,{noShadow:1,noGrain:1})},
+ {k:'wall_ivy',n:'Tanaman Rambat',cat:'wall',price:620,place:'wall',w:110,h:110,svg:S(`
+   <path d="M10 18q24 10 30 30t26 34" fill="none" stroke="${C.greenD}" stroke-width="3.4"/>
+   <path d="M86 16q-18 14-22 32t-18 30" fill="none" stroke="${C.greenD}" stroke-width="3"/>
+   ${[[24,26],[38,44],[52,62],[70,34],[58,50],[44,74]].map(([x,y])=>
+     `<ellipse cx="${x}" cy="${y}" rx="7" ry="5" fill="${C.leaf}" ${stT}/>`).join('')}`,{noShadow:1,noGrain:1})},
+ {k:'cat_tower',n:'Menara Kucing',cat:'pet',price:2100,place:'floor',w:120,h:120,svg:S(`
+   <ellipse cx="50" cy="88" rx="30" ry="10" fill="${C.wood}" ${st}/>
+   <rect x="42" y="46" width="16" height="42" rx="5" fill="${C.woodL}" ${st}/>
+   ${[54,66,78].map(y=>`<path d="M42 ${y}h16" stroke="${C.wood}" stroke-width="2.2"/>`).join('')}
+   <rect x="22" y="30" width="56" height="16" rx="6" fill="${C.wood}" ${st}/>
+   <path d="M28 30V16a10 10 0 0 1 20 0v14z" fill="${C.pink}" ${st}/>
+   <circle cx="66" cy="24" r="8" fill="${C.yellow}" ${stT}/>`)},
+ {k:'kitchen_island',n:'Meja Dapur Saji',cat:'kitchen',price:1350,place:'floor',w:132,h:132,svg:S(`
+   <rect x="14" y="44" width="72" height="12" rx="5" fill="#E0BE93" ${st}/>
+   <rect x="18" y="56" width="64" height="30" rx="5" fill="#FFFDF6" ${st}/>
+   <path d="M50 56v30" stroke="${L}" stroke-width="2"/>
+   <rect x="24" y="62" width="20" height="18" rx="3" fill="#F6EEDE" ${stT}/>
+   <rect x="56" y="62" width="20" height="18" rx="3" fill="#F6EEDE" ${stT}/>
+   <path d="M40 70h6M54 70h6" stroke="${L}" stroke-width="2.4" stroke-linecap="round"/>
+   <path d="M22 86v8M78 86v8" stroke="#A97F52" stroke-width="4" stroke-linecap="round"/>
+   <g><ellipse cx="34" cy="42" rx="9" ry="3" fill="#E9D6BC"/>
+      <path d="M27 42h14l-2 8H29z" fill="#FFFDF6" ${stT}/></g>
+   <g><rect x="56" y="34" width="14" height="10" rx="3" fill="${C.pink}" ${stT}/>
+      <path d="M70 38q5 1 4 4" fill="none" ${stT}/></g>`)},
+ {k:'photo_frame',n:'Bingkai Foto Custom',cat:'wall',price:900,place:'wall',w:96,h:96,photo:true,svg:S(`
+   <rect x="16" y="16" width="68" height="68" rx="7" fill="${C.wood}" ${st}/>
+   <rect x="22" y="22" width="56" height="56" rx="4" fill="#EFD9BE" ${stT}/>
+   __IMG__
+   <path d="M22 22h56" stroke="#DCC3A0" stroke-width="2"/>
+   <rect x="42" y="10" width="16" height="8" rx="3" fill="${C.pink}" ${stT}/>`)}
+];
+const CATS=[['all','Semua'],['living','R. Tamu'],['kitchen','Dapur'],['bedroom','Kamar'],['bathroom','K. Mandi'],['garden','Taman'],['plants','Tanaman'],['lighting','Lampu'],['wall','Dinding'],['floor','Karpet'],['storage','Simpanan'],['deco','Hiasan'],['pet','Area Pet'],['seasonal','Musiman']];
+
+/* ================= STATE ================= */
+const SAVE='house_decor_v2';
+// nama item lama -> baru (biar dekorasi yang udah dibuat ga ilang)
+const MIGRATE={sofa:'sofa_cream',rug:'rug_round',table:'coffee_table',plant:'plant_small',
+  frame:'wall_frame',bed:'bed_double',bench:'garden_bench',flowerbed:'flower_bed',
+  armchair:'armchair',beanbag:'beanbag',cactus:'cactus',bonsai:'bonsai',lamp:'floor_lamp',
+  lantern:'lantern',clock:'wall_clock',shelf:'wall_shelf',garland:'wall_garland',
+  mirror:'wall_mirror_oval',bear:'plush_bear',candle:'candle_set',basket:'basket',
+  petbed:'pet_bed',birdbath:'bird_bath',dining:'dining_table',rug_star:'rug_star'};
+
+let coin=325000, room=0, mode=false, sel=null, ccat='all';
+let owned=new Set(CAT.filter(i=>i.price===0).map(i=>i.k));
+let placed={};
+try{
+  const d=JSON.parse(localStorage.getItem(SAVE)||localStorage.getItem('house_decor_v1')||'{}');
+  if(d.placed)placed=d.placed;
+  if(d.coin!=null)coin=d.coin;
+  if(d.owned)owned=new Set(d.owned.map(k=>MIGRATE[k]||k).filter(k=>CAT.some(i=>i.k===k)));
+}catch(e){}
+// bersihkan: ganti nama lama, buang item yang udah ga ada di katalog
+Object.keys(placed).forEach(rk=>{
+  if(!Array.isArray(placed[rk])){placed[rk]=[];return}
+  placed[rk]=placed[rk].map(p=>{
+    if(!p||typeof p!=='object')return null;
+    const k=MIGRATE[p.k]||p.k;
+    return CAT.some(i=>i.k===k) ? {...p,k} : null;
+  }).filter(Boolean);
+});
+CAT.filter(i=>i.price===0).forEach(i=>owned.add(i.k));
+ROOMS.forEach(r=>{ if(!Array.isArray(placed[r.k])) placed[r.k]=[]; });
+const save=()=>{try{localStorage.setItem(SAVE,JSON.stringify({placed,coin,owned:[...owned]}))}catch(e){}};
+const item=k=>CAT.find(i=>i.k===k);
+const $=id=>document.getElementById(id);
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(window._tt);
+  window._tt=setTimeout(()=>t.classList.remove('on'),2000)}
+
+/* ================= RENDER ================= */
+function renderRoom(){
+  $('bg').innerHTML=ROOMS[room].bg;
+  $('hSub').textContent=ROOMS[room].n;
+  [...$('rooms').children].forEach((b,i)=>b.classList.toggle('on',i===room));
+  renderItems();
+}
+function renderItems(){
+  const box=$('items'); box.innerHTML='';
+  const list=[...placed[ROOMS[room].k]];
+  // karpet paling bawah, lalu urut Y (makin bawah makin depan)
+  list.sort((a,b)=>{
+    const ia=item(a.k), ib=item(b.k);
+    const ra=!!ia&&ia.place==='rug', rb=!!ib&&ib.place==='rug';
+    if(ra!==rb) return ra?-1:1;
+    return (a.z||0)-(b.z||0) || a.y-b.y;
+  });
+  list.forEach(p=>{
+    const it=item(p.k); if(!it) return;
+    const d=document.createElement('div');
+    d.className='it'+(sel===p.id?' sel':'');
+    d.dataset.id=p.id;
+    d.style.cssText=`left:${(p.x/300*100)}%;top:${(p.y/400*100)}%;width:${it.w/300*100}%;height:${it.h/400*100}%;
+      transform:translate(-50%,-50%) scaleX(${p.flip?-1:1})`;
+    let html=it.svg.replace('<svg','<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet"');
+    if(it.photo){
+      html = html.replace('__IMG__', p.img
+        ? `<clipPath id="cp${p.id}"><rect x="24" y="24" width="52" height="52" rx="3"/></clipPath>
+           <image href="${p.img}" x="24" y="24" width="52" height="52"
+             preserveAspectRatio="xMidYMid slice" clip-path="url(#cp${p.id})"/>`
+        : `<g opacity=".55"><path d="M30 66l12-14 9 9 7-7 12 12z" fill="#9FD8A8"/>
+           <circle cx="38" cy="38" r="5" fill="#FFD98A"/>
+           <text x="50" y="72" font-size="7" text-anchor="middle" fill="#8A6C4E" font-family="sans-serif">tap 📷</text></g>`);
+    }
+    d.innerHTML=html;
+    box.appendChild(d);
+  });
+  positionBar();
+}
+function positionBar(){
+  const bar=$('obar');
+  if(!mode||!sel){bar.classList.remove('on');return}
+  const p=placed[ROOMS[room].k].find(x=>x.id===sel);
+  if(!p){bar.classList.remove('on');return}
+  const it=item(p.k);
+  if(!it){bar.classList.remove('on');return}
+  bar.style.left=(p.x/300*100)+'%';
+  bar.style.top=Math.max(9,(p.y-it.h/2)/400*100)+'%';
+  bar.classList.add('on');
+  $('bPhoto').style.display = it.photo ? 'grid' : 'none';
+}
+
+/* ================= DRAG ================= */
+const stage=$('stage');
+let drag=null;
+function toLocal(e){
+  const r=stage.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/r.width*300, y:(e.clientY-r.top)/r.height*400};
+}
+function clampTo(p,it){
+  if(!it)return;
+  const hw=it.w/2, hh=it.h/2;
+  p.x=Math.max(hw*0.35, Math.min(300-hw*0.35, p.x));
+  if(it.place==='any'){                  // bebas: boleh nempel dinding atau di lantai
+    p.y=Math.max(hh*0.5, Math.min(400-hh*0.3, p.y));
+  }else if(it.place==='wall'){           // item dinding: tetap di area dinding
+    p.y=Math.max(hh*0.6, Math.min(HZ-hh*0.35, p.y));
+  }else{                                 // lantai & karpet: tetap di area lantai
+    p.y=Math.max(HZ+hh*0.15, Math.min(400-hh*0.3, p.y));
+  }
+}
+stage.addEventListener('pointerdown',e=>{
+  if(!mode) return;
+  if(e.target.closest('#obar')) return;   // jangan hapus seleksi kalau yang ditekan toolbar
+  const el=e.target.closest('.it');
+  if(!el){ sel=null; renderItems(); return; }
+  const id=el.dataset.id;
+  const p=placed[ROOMS[room].k].find(x=>x.id===id); if(!p) return;
+  sel=id; renderItems();
+  const l=toLocal(e);
+  drag={id,dx:p.x-l.x,dy:p.y-l.y,moved:false};
+  el.classList.add('drag');
+  const it=item(p.k);
+  if(!it){drag=null;return}
+  if(it.place!=='any') $(it.place==='wall'?'zw':'zf').classList.add('on');
+  stage.setPointerCapture(e.pointerId);
+  e.preventDefault();
+},{passive:false});
+stage.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const p=placed[ROOMS[room].k].find(x=>x.id===drag.id); if(!p) return;
+  const it=item(p.k); if(!it){drag=null;return}
+  const l=toLocal(e);
+  p.x=l.x+drag.dx; p.y=l.y+drag.dy;
+  clampTo(p,it);
+  drag.moved=true;
+  renderItems();
+  e.preventDefault();
+},{passive:false});
+function endDrag(){
+  if(!drag) return;
+  drag=null; save();
+  $('zw').classList.remove('on'); $('zf').classList.remove('on');
+  document.querySelectorAll('.it.drag').forEach(d=>d.classList.remove('drag'));
+  renderItems();
+}
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+
+/* ================= AKSI ================= */
+function withSel(fn){
+  const arr=placed[ROOMS[room].k];
+  const p=arr.find(x=>x.id===sel); if(!p) return;
+  fn(p,arr); save(); renderItems();
+}
+const fileIn=document.createElement('input');
+fileIn.type='file'; fileIn.accept='image/*'; fileIn.style.display='none';
+document.body.appendChild(fileIn);
+$('bPhoto').onclick=()=>{ if(sel) fileIn.click(); };
+fileIn.onchange=()=>{
+  const f=fileIn.files&&fileIn.files[0]; if(!f||!sel) return;
+  const img=new Image(), rd=new FileReader();
+  rd.onload=()=>{ img.onload=()=>{
+      // kecilkan biar hemat ruang simpan
+      const cv=document.createElement('canvas'), S2=260;
+      const sc=Math.min(S2/img.width,S2/img.height,1);
+      cv.width=img.width*sc; cv.height=img.height*sc;
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      withSel(p=>{p.img=cv.toDataURL('image/jpeg',.8)});
+      toast('Foto dipasang ✨');
+    }; img.src=rd.result; };
+  rd.readAsDataURL(f); fileIn.value='';
+};
+$('bFlip').onclick=()=>withSel(p=>{p.flip=!p.flip});
+$('bUp').onclick=()=>withSel(p=>{p.z=(p.z||0)+1});
+$('bDown').onclick=()=>withSel(p=>{p.z=(p.z||0)-1});
+$('bDel').onclick=()=>withSel((p,arr)=>{arr.splice(arr.indexOf(p),1);sel=null;toast('Disimpan kembali ke koleksi')});
+
+$('btnMode').onclick=()=>{
+  mode=!mode; sel=null;
+  $('btnMode').textContent = mode?'✅ Selesai':'✋ Mode Dekor';
+  $('btnMode').classList.toggle('primary',mode);
+  toast(mode?'Geser furniture buat pindahin':'Mode dekor selesai');
+  renderItems();
+};
+
+/* katalog */
+function openSheet(o){$('sheet').classList.toggle('on',o);$('mask').classList.toggle('on',o)}
+$('btnShop').onclick=()=>{renderCat();openSheet(true)};
+$('closeSheet').onclick=()=>openSheet(false);
+$('mask').onclick=()=>openSheet(false);
+function renderCat(){
+  $('cats').innerHTML=CATS.map(([k,l])=>`<button class="ct${k===ccat?' on':''}" data-k="${k}">${l}</button>`).join('');
+  [...$('cats').children].forEach(b=>b.onclick=()=>{ccat=b.dataset.k;renderCat()});
+  const list=ccat==='all'?CAT:CAT.filter(i=>i.cat===ccat);
+  $('cgrid').innerHTML=list.map(i=>{
+    const own=owned.has(i.k);
+    return `<div class="ci${own?' owned':''}" data-k="${i.k}">
+      <div class="th">${i.svg}</div><div class="nm">${i.n}</div>
+      <div class="pr ${i.price===0?'free':''}">${own?'Dimiliki':(i.price===0?'GRATIS':i.price.toLocaleString('id-ID')+' 🪙')}</div>
+    </div>`}).join('');
+  [...$('cgrid').children].forEach(c=>c.onclick=()=>addItem(c.dataset.k));
+}
+function addItem(k){
+  const it=item(k);
+  if(!it){toast('Item tidak ditemukan');return}
+  if(!owned.has(k)){
+    if(coin<it.price){toast('🪙 Koin belum cukup');return}
+    coin-=it.price; owned.add(k); $('coin').textContent=coin.toLocaleString('id-ID');
+    toast(`Dibeli: ${it.n}`);
+  }
+  const p={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),k,
+    x:150, y: it.place==='wall'? 120 : (it.place==='any'? 250 : 320), flip:false, z:0};
+  clampTo(p,it);
+  placed[ROOMS[room].k].push(p);
+  sel=p.id; if(!mode){mode=true;$('btnMode').textContent='✅ Selesai';$('btnMode').classList.add('primary')}
+  save(); renderItems(); openSheet(false);
+  toast('Geser buat atur posisinya');
+}
+
+/* ruangan */
+$('rooms').innerHTML=ROOMS.map((r,i)=>`<button class="rm${i?'':' on'}">${r.n}</button>`).join('');
+[...$('rooms').children].forEach((b,i)=>b.onclick=()=>{room=i;sel=null;renderRoom()});
+$('back').onclick=()=>toast('(nanti balik ke menu rumah)');
+$('coin').textContent=coin.toLocaleString('id-ID');
+
+/* isi contoh awal kalau masih kosong */
+if(!placed.living.length){
+  placed.living=[
+    {id:'a1',k:'rug_round',x:154,y:344,flip:false,z:0},
+    {id:'a2',k:'sofa_cream',x:112,y:286,flip:false,z:0},
+    {id:'a3',k:'coffee_table',x:232,y:322,flip:false,z:0},
+    {id:'a4',k:'plant_tall',x:36,y:300,flip:false,z:0},
+    {id:'a5',k:'wall_frame',x:238,y:120,flip:false,z:0},
+    {id:'a6',k:'floor_lamp',x:214,y:258,flip:false,z:0}
+  ];
+  placed.bedroom=[{id:'b1',k:'bed_double',x:130,y:300,flip:false,z:0},{id:'b2',k:'nightstand',x:246,y:322,flip:false,z:0}];
+  placed.garden=[{id:'c1',k:'garden_bench',x:96,y:308,flip:false,z:0},{id:'c2',k:'flower_bed',x:222,y:326,flip:false,z:0}];
+  save();
+}
+renderRoom();
+window.__st={placed,ROOMS,CAT,get room(){return room},get sel(){return sel},get mode(){return mode}};
+</script>
+</body>
+</html>
